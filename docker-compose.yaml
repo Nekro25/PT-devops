@@ -34,8 +34,8 @@ services:
       - "-c"
       - "log_replication_commands=on"
       - "-c"
-      - "archive_mode=on"
-      - "-c"
+#      - "archive_mode=on"
+#      - "-c"
       - "max_wal_senders=10"
       - "-c"
       - "wal_level=replica"
@@ -71,7 +71,7 @@ services:
     command: |
       bash -c "
       rm -rf /var/lib/postgresql/data/*
-      #export PGPASSWORD=$PGPASSWORD
+      export PGPASSWORD=${DB_REPL_PASSWORD}
       until pg_basebackup -h ${DB_HOST} -D /var/lib/postgresql/data -U ${DB_REPL_USER} --slot=replication_slot -P -R
       do
       echo 'primary connecting...'

@@ -7,17 +7,16 @@ from psycopg2 import Error
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 ID = os.getenv("ID")
-HOST = os.getenv("HOST")
-PORT = os.getenv("PORT")
-USER = os.getenv("USER")
-PASSWORD = os.getenv("PASSWORD")
-DATABASE = os.getenv("DATABASE")
+HOST = os.getenv("RM_HOST")
+PORT = os.getenv("RM_PORT")
+USER = os.getenv("RM_USER")
+PASSWORD = os.getenv("RM_PASSWORD")
 
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
-DATABASE = os.getenv("DATABASE")
+DATABASE = os.getenv("DB_DATABASE")
 
 finds = dict()
 
@@ -45,7 +44,7 @@ def findPhoneNumbersCommand(update: Update, context):
 def findPhoneNumbers(update: Update, context):
     user_input = update.message.text
     phoneNumRegex = re.compile(r'\+7[ ]?[| |\(|-]?\d{3}[| |\)|-][ ]?\d{3}[| |-]?\d{2}[| |-]?\d{2}|'
-                               r'8[ ]?[| |\(|-]?\d{3}[| |\)|-][ ]?\d{3}[| |-]?\d{2}[| |-]?\d{2}') # Если писать [+7|8]... "+" Не включен в вывод
+                               r'8[ ]?[| |\(|-]?\d{3}[| |\)|-][ ]?\d{3}[| |-]?\d{2}[| |-]?\d{2}')
     phoneNumberList = phoneNumRegex.findall(user_input)
     if not phoneNumberList:
         update.message.reply_text('Телефонные номера не найдены')
@@ -88,7 +87,7 @@ def findEmailsCommand(update: Update, context):
 
 def findEmails(update: Update, context):
     user_input = update.message.text
-    emailRegex = re.compile(r'[\w|\d]+@\w+\.\w+')
+    emailRegex = re.compile(r'[\w|\d|._-]+@\w+\.\w+')
     emailList = emailRegex.findall(user_input)
     if not emailList:
         update.message.reply_text('Не найденно ни одной почты')
@@ -248,7 +247,7 @@ def get_services(update: Update, context):
 
 def get_repl_logs(update: Update, context):
     client.connect(hostname=HOST, username=USER, password=PASSWORD, port=PORT)
-    stdin, stdout, stderr = client.exec_command(f'echo {PASSWORD} | sudo -S docker logs db')
+    stdin, stdout, stderr = client.exec_command(f'echo {PASSWORD} | sudo -S docker logs db | grep -w "db_repl"')
     data = stdout.read() + stderr.read()
     client.close()
     data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]
