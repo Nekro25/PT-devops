@@ -6,7 +6,6 @@ from psycopg2 import Error
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
-ID = os.getenv("ID")
 HOST = os.getenv("RM_HOST")
 PORT = os.getenv("RM_PORT")
 USER = os.getenv("RM_USER")
@@ -44,13 +43,14 @@ def findPhoneNumbersCommand(update: Update, context):
 def findPhoneNumbers(update: Update, context):
     user_input = update.message.text
     phoneNumRegex = re.compile(r'\+7[ ]?[| |\(|-]?\d{3}[| |\)|-][ ]?\d{3}[| |-]?\d{2}[| |-]?\d{2}|'
-                               r'8[ ]?[| |\(|-]?\d{3}[| |\)|-][ ]?\d{3}[| |-]?\d{2}[| |-]?\d{2}')
+                               r'8[ ]?[| |\(|-]?\d{3}[| |\)|-][ ]?\d{3}[| |-]?\d{2}[| |-]?\d{2}'
+                               r'\+7\d{10}|8\d{10}')
     phoneNumberList = phoneNumRegex.findall(user_input)
     if not phoneNumberList:
         update.message.reply_text('Телефонные номера не найдены')
         return  ConversationHandler.END
     phoneNumbers = ''
-    finds[ID] = phoneNumberList
+    finds[update.effective_user.id] = phoneNumberList
     for i in range(len(phoneNumberList)):
         phoneNumbers += f'{i + 1}. {phoneNumberList[i]}\n'
     update.message.reply_text(phoneNumbers)
@@ -65,7 +65,7 @@ def findPhoneNumbers_db(update: Update, context):
                                           host=DB_HOST, port=DB_PORT, database=DATABASE)
             cursor = connection.cursor()
             data = 'INSERT INTO phone_nums (phone) VALUES '
-            for i in finds[ID]:
+            for i in finds[update.effective_user.id]:
                 data += "('" + i + "'),"
             data = data[:-1] + ';'
             cursor.execute(data)
@@ -93,7 +93,7 @@ def findEmails(update: Update, context):
         update.message.reply_text('Не найденно ни одной почты')
         return  ConversationHandler.END
     emails = ''
-    finds[ID] = emailList
+    finds[update.effective_user.id] = emailList
     for i in range(len(emailList)):
         emails += f'{i + 1}. {emailList[i]}\n'
     update.message.reply_text(emails)
@@ -108,7 +108,7 @@ def findEmails_db(update: Update, context):
                                           host=DB_HOST, port=DB_PORT, database=DATABASE)
             cursor = connection.cursor()
             data = 'INSERT INTO emails (email) VALUES '
-            for i in finds[ID]:
+            for i in finds[update.effective_user.id]:
                 data += "('" + i + "'),"
             data = data[:-1] + ';'
             cursor.execute(data)
@@ -221,6 +221,7 @@ def get_ss(update: Update, context):
 def get_apt_list_command(update: Update, context):
     update.message.reply_text('Ведите название пакета для получения информации о ней или введите "-" для получения списка пакетов ')
     return 'get_apt_list'
+
 def get_apt_list(update: Update, context):
     user_input = update.message.text
     client.connect(hostname=HOST, username=USER, password=PASSWORD, port=PORT)
@@ -247,7 +248,7 @@ def get_services(update: Update, context):
 
 def get_repl_logs(update: Update, context):
     client.connect(hostname=HOST, username=USER, password=PASSWORD, port=PORT)
-    stdin, stdout, stderr = client.exec_command(f'echo {PASSWORD} | sudo -S docker logs db | grep -w "db_repl"')
+    stdin, stdout, stderr = client.exec_command('cat /var/log/postgresql/postgresql.log | grep repl | tail -n 10')
     data = stdout.read() + stderr.read()
     client.close()
     data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]
