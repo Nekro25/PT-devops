@@ -1,0 +1,28 @@
+all:
+  vars:
+    DB_REPL_USER: repl_user
+    DB_REPL_PASSWORD: Qq12345
+    POSTGRES_VERSION: 15
+  hosts:
+    bot_db_host:
+      ansible_host: 192.168.236.149
+      ansible_user: root
+      ansible_ssh_pass: deb
+      dir: /root/ans_test
+      TOKEN: '6575604654:AAGjrPgDzTHRBjkcaItuzpMVfUm-LN5P-TE'
+      RM_HOST: 192.168.236.149
+      RM_PORT: 22
+      RM_USER: root
+      DB_HOST: 192.168.236.149
+      RM_PASSWORD: deb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_PORT: 5432
+      DB_DATABASE: bot_db
+      DB_REPL_PORT: 5432
+      DB_REPL_HOST: 192.168.236.143
+    db_repl_host:
+      ansible_host: 192.168.236.143
+      ansible_user: root
+      ansible_ssh_pass: deb
+      DB_HOST: 192.168.236.149

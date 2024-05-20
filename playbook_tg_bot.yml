@@ -1,0 +1,135 @@
+- name: db
+  hosts: bot_db_host
+  become: yes
+  gather_facts: false
+
+  tasks:
+    - name: install postgres
+      apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+
+    - name: configure db
+      become_user: postgres
+      become: yes
+      shell: |
+        psql -c "CREATE DATABASE {{ hostvars[inventory_hostname]['DB_DATABASE'] }}"
+
+    - name: create table
+      become_user: postgres
+      become: yes
+      shell: |
+        set -e
+        psql -v ON_ERROR_STOP=1 --username "{{ hostvars[inventory_hostname]['DB_USER'] }}" --dbname "{{ hostvars[inventory_hostname]['DB_DATABASE'] }}" <<-EOSQL
+          ALTER USER {{ hostvars[inventory_hostname]['DB_USER'] }}  WITH PASSWORD '{{ hostvars[inventory_hostname]["DB_PASSWORD"] }}';
+          CREATE ROLE {{ hostvars[inventory_hostname]['DB_REPL_USER'] }} WITH REPLICATION LOGIN PASSWORD '{{ hostvars[inventory_hostname]["DB_REPL_PASSWORD"] }}';
+          CREATE TABLE phone_nums (p_id SERIAL PRIMARY KEY, phone VARCHAR(255));
+          CREATE TABLE emails (e_id SERIAL PRIMARY KEY, email VARCHAR(255));
+        EOSQL
+
+    - name: set postgresql.conf
+      blockinfile:
+        path: "/etc/postgresql/{{ hostvars[inventory_hostname]['POSTGRES_VERSION'] }}/main/postgresql.conf"
+        block: |
+          max_connections = 100
+          listen_addresses = '*'
+          wal_level = replica
+          wal_log_hints = on
+          max_wal_senders = 10
+          log_replication_commands = on
+
+    - name: set pg_hba.conf
+      blockinfile:
+        path: "/etc/postgresql/{{ hostvars[inventory_hostname]['POSTGRES_VERSION'] }}/main/pg_hba.conf"
+        block: |
+          host replication all 0.0.0.0/0 md5
+          host all all 0.0.0.0/0 trust
+
+    - name: restart postgresql
+      become: yes
+      service:
+        name: postgresql
+        state: restarted
+
+- name: db_repl
+  hosts: db_repl_host
+  become: yes
+  gather_facts: false
+
+  tasks:
+    - name: install postgres
+      apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+
+    - name: remove data
+      command: rm -rf /var/lib/postgresql/data/
+
+    - name: pg_basebackup
+      environment:
+        PGPASSWORD: "{{ hostvars[inventory_hostname]['DB_REPL_PASSWORD'] }}"
+      command: pg_basebackup -h {{ hostvars[inventory_hostname]['DB_HOST'] }} -D /var/lib/postgresql/data -U {{ hostvars[inventory_hostname]['DB_REPL_USER'] }} -P -R
+
+    - name: change owner to postgres
+      command: chown -R postgres:postgres /var/lib/postgresql
+
+    - name: restart postgresql
+      service:
+        name: postgresql
+        state: restarted
+
+- name: tg_bot
+  hosts: bot_db_host
+  become: yes
+  gather_facts: false
+
+  tasks:
+    - name: upgrade apt
+      become: true
+      apt:
+        update_cache: yes
+        upgrade: 'yes'
+
+    - name: install git and python3
+      apt:
+        name:
+          - git
+          - python3
+          - python3-pip
+          - python3-venv
+
+    - name: mkdir
+      command: mkdir -p "{{hostvars[inventory_hostname]['dir']}}/devops"
+
+    - name: git clone
+      git:
+        repo: https://github.com/Nekro25/PT-devops.git
+        dest: "{{hostvars[inventory_hostname]['dir']}}/devops"
+        version: main
+
+    - name: add venv
+      ansible.builtin.command:
+        cmd: python3 -m venv .venv
+
+    - name: install requirements
+      ansible.builtin.shell:
+        cmd: .venv/bin/pip install -r "{{hostvars[inventory_hostname]['dir']}}/devops/requirements.txt"
+      environment:
+        PATH: ".venv/bin:{{ ansible_env.PATH }}"
+
+    - name: start python
+      command: .venv/bin/python3 "{{ hostvars[inventory_hostname]['dir'] }}/devops/tg_bot.py"
+      environment:
+        TOKEN       : "{{hostvars[inventory_hostname]['TOKEN'] }}"
+        RM_HOST        : "{{hostvars[inventory_hostname]['RM_HOST'] }}"
+        RM_PORT        : "{{hostvars[inventory_hostname]['RM_PORT'] }}"
+        RM_USER        : "{{hostvars[inventory_hostname]['RM_USER'] }}"
+        RM_PASSWORD    : "{{hostvars[inventory_hostname]['RM_PASSWORD'] }}"
+        DB_HOST     : "{{hostvars[inventory_hostname]['DB_HOST'] }}"
+        DB_USER     : "{{hostvars[inventory_hostname]['DB_USER'] }}"
+        DB_PASSWORD : "{{hostvars[inventory_hostname]['DB_PASSWORD'] }}"
+        DB_PORT     : "{{hostvars[inventory_hostname]['DB_PORT'] }}"
+        DB_DATABASE : "{{hostvars[inventory_hostname]['DB_DATABASE'] }}"
+
