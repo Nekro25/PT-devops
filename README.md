@@ -1,1 +1,1 @@
-That branch for clonning only the bot
+That branch only contains bot and his requirements 
